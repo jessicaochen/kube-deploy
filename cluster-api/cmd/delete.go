@@ -24,7 +24,7 @@ var deleteCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		yamlFile := args[0]
-		cluster, err := readAndValidateYaml(yamlFile)
+		cluster, err := ReadAndValidateYaml(yamlFile)
 		if err != nil {
 			logger.Critical(err.Error())
 			os.Exit(1)
@@ -41,7 +41,7 @@ var deleteCmd = &cobra.Command{
 
 // deleteCluster uses kubicorn API to delete cluster.
 func deleteCluster(cluster *api.Cluster) error {
-	newCluster := convertToKubecornCluster(cluster)
+	newCluster := ConvertToKubicornCluster(cluster)
 
 	newCluster, err := initapi.InitCluster(newCluster)
 	if err != nil {

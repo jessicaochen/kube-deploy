@@ -39,7 +39,7 @@ func Execute() {
 	}
 }
 
-func convertToKubecornCluster(cluster *api.Cluster) *cluster.Cluster {
+func ConvertToKubicornCluster(cluster *api.Cluster) *cluster.Cluster {
 	newCluster := profileMapIndexed[cluster.Spec.Cloud](cluster.Name)
 	newCluster.Name = cluster.Name
 	newCluster.CloudId = cluster.Spec.Project
@@ -48,7 +48,7 @@ func convertToKubecornCluster(cluster *api.Cluster) *cluster.Cluster {
 	return newCluster
 }
 
-func readAndValidateYaml(file string) (*api.Cluster, error) {
+func ReadAndValidateYaml(file string) (*api.Cluster, error) {
 	bytes, err := ioutil.ReadFile(file)
 	if err != nil {
 		return nil, err

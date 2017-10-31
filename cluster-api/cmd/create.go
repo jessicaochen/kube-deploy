@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/kris-nova/kubicorn/apis/cluster"
 	"github.com/kris-nova/kubicorn/cutil"
 	"github.com/kris-nova/kubicorn/cutil/initapi"
 	"github.com/kris-nova/kubicorn/cutil/kubeconfig"
@@ -25,7 +26,7 @@ var createCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		yamlFile := args[0]
-		cluster, err := readAndValidateYaml(yamlFile)
+		cluster, err := ReadAndValidateYaml(yamlFile)
 		if err != nil {
 			logger.Critical(err.Error())
 			os.Exit(1)
@@ -41,33 +42,11 @@ var createCmd = &cobra.Command{
 
 // createCluster uses kubicorn API to create cluster
 func createCluster(cluster *api.Cluster) error {
-	newCluster := convertToKubecornCluster(cluster)
+	newCluster := ConvertToKubicornCluster(cluster)
 
-	newCluster, err := initapi.InitCluster(newCluster)
+	err := CreateKubicornCluster(newCluster)
 	if err != nil {
 		return err
-	}
-	runtimeParams := &cutil.RuntimeParameters{}
-	reconciler, err := cutil.GetReconciler(newCluster, runtimeParams)
-	if err != nil {
-		return fmt.Errorf("Unable to get reconciler: %v", err)
-	}
-
-	logger.Info("Query existing resources")
-	actual, err := reconciler.Actual(newCluster)
-	if err != nil {
-		return fmt.Errorf("Unable to get actual cluster: %v", err)
-	}
-	logger.Info("Resolving expected resources")
-	expected, err := reconciler.Expected(newCluster)
-	if err != nil {
-		return fmt.Errorf("Unable to get expected cluster: %v", err)
-	}
-
-	logger.Info("Reconciling")
-	newCluster, err = reconciler.Reconcile(actual, expected)
-	if err != nil {
-		return fmt.Errorf("Unable to reconcile cluster: %v", err)
 	}
 
 	err = kubeconfig.RetryGetConfig(newCluster)
@@ -79,6 +58,37 @@ func createCluster(cluster *api.Cluster) error {
 	logger.Always("You can now `kubectl get nodes`")
 	privKeyPath := strings.Replace(newCluster.SSH.PublicKeyPath, ".pub", "", 1)
 	logger.Always("You can SSH into your cluster ssh -i %s %s@%s", privKeyPath, newCluster.SSH.User, newCluster.KubernetesAPI.Endpoint)
+
+	return nil
+}
+
+func CreateKubicornCluster(cluster *cluster.Cluster) error {
+	cluster, err := initapi.InitCluster(cluster)
+	if err != nil {
+		return err
+	}
+	runtimeParams := &cutil.RuntimeParameters{}
+	reconciler, err := cutil.GetReconciler(cluster, runtimeParams)
+	if err != nil {
+		return fmt.Errorf("Unable to get reconciler: %v", err)
+	}
+
+	logger.Info("Query existing resources")
+	actual, err := reconciler.Actual(cluster)
+	if err != nil {
+		return fmt.Errorf("Unable to get actual cluster: %v", err)
+	}
+	logger.Info("Resolving expected resources")
+	expected, err := reconciler.Expected(cluster)
+	if err != nil {
+		return fmt.Errorf("Unable to get expected cluster: %v", err)
+	}
+
+	logger.Info("Reconciling")
+	cluster, err = reconciler.Reconcile(actual, expected)
+	if err != nil {
+		return fmt.Errorf("Unable to reconcile cluster: %v", err)
+	}
 
 	return nil
 }

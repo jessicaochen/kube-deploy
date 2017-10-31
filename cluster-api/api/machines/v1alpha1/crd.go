@@ -14,13 +14,13 @@ import (
 )
 
 const (
-	machinesCRDGroup   = "cluster-api.k8s.io"
-	machinesCRDPlural  = "machines"
+	MachinesCRDGroup   = "cluster-api.k8s.io"
+	MachinesCRDPlural  = "machines"
 	machinesCRDVersion = "v1alpha1"
-	machinesCRDName    = machinesCRDPlural + "." + machinesCRDGroup
+	machinesCRDName    = MachinesCRDPlural + "." + MachinesCRDGroup
 )
 
-var SchemeGroupVersion = schema.GroupVersion{Group: machinesCRDGroup, Version: machinesCRDVersion}
+var SchemeGroupVersion = schema.GroupVersion{Group: MachinesCRDGroup, Version: machinesCRDVersion}
 
 func CreateMachinesCRD(clientset apiextensionsclient.Interface) (*extensionsv1.CustomResourceDefinition, error) {
 	crd := &extensionsv1.CustomResourceDefinition{
@@ -28,11 +28,11 @@ func CreateMachinesCRD(clientset apiextensionsclient.Interface) (*extensionsv1.C
 			Name: machinesCRDName,
 		},
 		Spec: extensionsv1.CustomResourceDefinitionSpec{
-			Group:   machinesCRDGroup,
+			Group:   MachinesCRDGroup,
 			Version: SchemeGroupVersion.Version,
 			Scope:   extensionsv1.ClusterScoped,
 			Names: extensionsv1.CustomResourceDefinitionNames{
-				Plural: machinesCRDPlural,
+				Plural: MachinesCRDPlural,
 				Kind:   reflect.TypeOf(Machine{}).Name(),
 			},
 		},
