@@ -16,14 +16,13 @@ limitations under the License.
 
 package config
 
-const ClusterAPIDeployConfigTemplate = `
+const ClusterAPIDeployAPIServerConfigTemplate = `
 apiVersion: apiregistration.k8s.io/v1beta1
 kind: APIService
 metadata:
   name: v1alpha1.cluster.k8s.io
   labels:
     api: clusterapi
-    apiserver: "true"
 spec:
   version: v1alpha1
   group: cluster.k8s.io
@@ -55,7 +54,7 @@ spec:
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: clusterapi
+  name: clusterapi-apiserver
   namespace: default
   labels:
     api: clusterapi
@@ -110,50 +109,6 @@ spec:
           limits:
             cpu: 100m
             memory: 30Mi
-      - name: controller-manager
-        image: {{ .ControllerManagerImage }}
-        volumeMounts:
-          - name: config
-            mountPath: /etc/kubernetes
-          - name: certs
-            mountPath: /etc/ssl/certs
-        command:
-        - "./controller-manager"
-        args:
-        - --kubeconfig=/etc/kubernetes/admin.conf
-        resources:
-          requests:
-            cpu: 100m
-            memory: 20Mi
-          limits:
-            cpu: 100m
-            memory: 30Mi
-      - name: gce-machine-controller
-        image: {{ .MachineControllerImage }}
-        volumeMounts:
-          - name: config
-            mountPath: /etc/kubernetes
-          - name: certs
-            mountPath: /etc/ssl/certs
-          - name: credentials
-            mountPath: /etc/credentials
-          - name: sshkeys
-            mountPath: /etc/sshkeys
-        env:
-          - name: GOOGLE_APPLICATION_CREDENTIALS
-            value: /etc/credentials/service-account.json
-        command:
-        - "./gce-machine-controller"
-        args:
-        - --kubeconfig=/etc/kubernetes/admin.conf
-        - --token={{ .Token }}
-        resources:
-          requests:
-            cpu: 100m
-            memory: 20Mi
-          limits:
-            cpu: 100m
-            memory: 30Mi
       volumes:
       - name: cluster-apiserver-certs
         secret:
@@ -164,13 +119,6 @@ spec:
       - name: certs
         hostPath:
           path: /etc/ssl/certs
-      - name: sshkeys
-        secret:
-          secretName: machine-controller-sshkeys
-          defaultMode: 256
-      - name: credentials
-        secret:
-          secretName: machine-controller-credential
 ---
 apiVersion: apps/v1beta1
 kind: StatefulSet
@@ -218,6 +166,8 @@ spec:
         env:
         - name: ETCD_DATA_DIR
           value: /etcd-data-dir
+        - name: ETCDCTL_API
+          value: "3"
         command:
         - /usr/local/bin/etcd
         - --listen-client-urls
@@ -256,10 +206,12 @@ metadata:
   labels:
     app: etcd
 spec:
+  type: NodePort
   ports:
   - port: 2379
     name: etcd
     targetPort: 2379
+    nodePort: 32379
   selector:
     app: etcd
 ---
@@ -275,4 +227,96 @@ metadata:
 data:
   tls.crt: {{ .TLSCrt }}
   tls.key: {{ .TLSKey }}
+`
+
+const ClusterAPIDeployControllerConfigTemplate = `
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: clusterapi-controller
+  namespace: default
+  labels:
+    api: clusterapi
+    apiserver: "true"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        api: clusterapi
+        apiserver: "true"
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - effect: NoExecute
+        key: node.alpha.kubernetes.io/notReady
+        operator: Exists
+      - effect: NoExecute
+        key: node.alpha.kubernetes.io/unreachable
+        operator: Exists
+      containers:
+      - name: controller-manager
+        image: {{ .ControllerManagerImage }}
+        volumeMounts:
+          - name: config
+            mountPath: /etc/kubernetes
+          - name: certs
+            mountPath: /etc/ssl/certs
+        command:
+        - "./controller-manager"
+        args:
+        - --kubeconfig=/etc/kubernetes/admin.conf
+        resources:
+          requests:
+            cpu: 100m
+            memory: 20Mi
+          limits:
+            cpu: 100m
+            memory: 30Mi
+      - name: gce-machine-controller
+        image: {{ .MachineControllerImage }}
+        volumeMounts:
+          - name: config
+            mountPath: /etc/kubernetes
+          - name: certs
+            mountPath: /etc/ssl/certs
+          - name: credentials
+            mountPath: /etc/credentials
+          - name: sshkeys
+            mountPath: /etc/sshkeys
+        env:
+          - name: GOOGLE_APPLICATION_CREDENTIALS
+            value: /etc/credentials/service-account.json
+        command:
+        - "./gce-machine-controller"
+        args:
+        - --kubeconfig=/etc/kubernetes/admin.conf
+        - --token={{ .Token }}
+        - --v=5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 20Mi
+          limits:
+            cpu: 100m
+            memory: 30Mi
+      volumes:
+      - name: config
+        hostPath:
+          path: /etc/kubernetes
+      - name: certs
+        hostPath:
+          path: /etc/ssl/certs
+      - name: sshkeys
+        secret:
+          secretName: machine-controller-sshkeys
+          defaultMode: 256
+      - name: credentials
+        secret:
+          secretName: machine-controller-credential
 `

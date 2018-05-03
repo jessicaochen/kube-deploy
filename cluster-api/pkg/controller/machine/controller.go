@@ -132,7 +132,13 @@ func (c *MachineControllerImpl) create(machine *clusterv1.Machine) error {
 		return err
 	}
 
-	return c.actuator.Create(cluster, machine)
+  err = c.actuator.Create(cluster, machine)
+  if err != nil {
+    glog.Errorf("Creating machine %v failed: %v", machine.ObjectMeta.Name, err)
+  } else {
+    glog.Infof("Creating machine %v succeeded", machine.ObjectMeta.Name)
+  }
+	return err
 }
 
 func (c *MachineControllerImpl) update(new_machine *clusterv1.Machine) error {
@@ -141,13 +147,28 @@ func (c *MachineControllerImpl) update(new_machine *clusterv1.Machine) error {
 		return err
 	}
 
+	  err = c.actuator.Update(cluster, new_machine)
+    if err != nil {
+      glog.Errorf("Updating machine %v failed: %v", new_machine.ObjectMeta.Name, err)
+    } else {
+      glog.Infof("Updating machine %v succeeded", new_machine.ObjectMeta.Name)
+    }
+
 	// TODO: Assume single master for now.
 	// TODO: Assume we never change the role for the machines. (Master->Node, Node->Master, etc)
-	return c.actuator.Update(cluster, new_machine)
+	return err
 }
 
 func (c *MachineControllerImpl) delete(machine *clusterv1.Machine) error {
-	return c.actuator.Delete(machine)
+
+  err := c.actuator.Delete(machine)
+  if err != nil {
+    glog.Errorf("Deleting machine %v failed: %v", machine.ObjectMeta.Name, err)
+  } else {
+    glog.Infof("Deleting machine %v succeeded", machine.ObjectMeta.Name)
+  }
+
+	return err
 }
 
 func (c *MachineControllerImpl) getCluster(machine *clusterv1.Machine) (*clusterv1.Cluster, error) {

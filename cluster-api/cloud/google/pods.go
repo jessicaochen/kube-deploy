@@ -34,7 +34,7 @@ import (
 
 var apiServerImage = "gcr.io/k8s-cluster-api/cluster-apiserver:0.0.2"
 var controllerManagerImage = "gcr.io/k8s-cluster-api/controller-manager:0.0.1"
-var machineControllerImage = "gcr.io/k8s-cluster-api/gce-machine-controller:0.0.3"
+var machineControllerImage = "gcr.io/jesschen-gke-dev/gce-machine-controller:0.0.3-dev"
 
 func init() {
 	if img, ok := os.LookupEnv("MACHINE_CONTROLLER_IMAGE"); ok {
@@ -121,23 +121,20 @@ func getApiServerCerts() (*caCertParams, error) {
 	return certParms, nil
 }
 
-func CreateApiServerAndController(token string) error {
-	tmpl, err := template.New("config").Parse(config.ClusterAPIDeployConfigTemplate)
-	if err != nil {
-		return err
-	}
-
-	certParms, err := getApiServerCerts()
+func CreateApiServer() error {
+	certParams, err := getApiServerCerts()
 	if err != nil {
 		glog.Errorf("Error: %v", err)
 		return err
 	}
 
+	tmpl, err := template.New("config").Parse(config.ClusterAPIDeployAPIServerConfigTemplate)
+	if err != nil {
+		return err
+	}
+
 	type params struct {
-		Token                  string
 		APIServerImage         string
-		ControllerManagerImage string
-		MachineControllerImage string
 		CABundle               string
 		TLSCrt                 string
 		TLSKey                 string
@@ -145,13 +142,52 @@ func CreateApiServerAndController(token string) error {
 
 	var tmplBuf bytes.Buffer
 	err = tmpl.Execute(&tmplBuf, params{
-		Token:                  token,
 		APIServerImage:         apiServerImage,
+		CABundle:               certParams.caBundle,
+		TLSCrt:                 certParams.tlsCrt,
+		TLSKey:                 certParams.tlsKey,
+	})
+	if err != nil {
+		return err
+	}
+
+	maxTries := 5
+	for tries := 0; tries < maxTries; tries++ {
+		err = deployConfig(tmplBuf.Bytes())
+		if err == nil {
+			return nil
+		} else {
+			if tries < maxTries-1 {
+				glog.Info("Error scheduling apiserver. Will retry...\n")
+				time.Sleep(3 * time.Second)
+			}
+		}
+	}
+
+	if err != nil {
+		return fmt.Errorf("couldn't start apiserver: %v\n", err)
+	} else {
+		return nil
+	}
+}
+
+func CreateController(token string) error {
+	tmpl, err := template.New("config").Parse(config.ClusterAPIDeployControllerConfigTemplate)
+	if err != nil {
+		return err
+	}
+
+	type params struct {
+		Token                  string
+		ControllerManagerImage string
+		MachineControllerImage string
+	}
+
+	var tmplBuf bytes.Buffer
+	err = tmpl.Execute(&tmplBuf, params{
+		Token:                  token,
 		ControllerManagerImage: controllerManagerImage,
 		MachineControllerImage: machineControllerImage,
-		CABundle:               certParms.caBundle,
-		TLSCrt:                 certParms.tlsCrt,
-		TLSKey:                 certParms.tlsKey,
 	})
 	if err != nil {
 		return err

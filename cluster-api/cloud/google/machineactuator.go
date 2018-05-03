@@ -19,6 +19,7 @@ package google
 import (
 	"bytes"
 	"errors"
+  "os/exec"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -116,7 +117,18 @@ func NewMachineActuator(kubeadmToken string, machineClient client.MachineInterfa
 	}, nil
 }
 
-func (gce *GCEClient) CreateMachineController(cluster *clusterv1.Cluster, initialMachines []*clusterv1.Machine) error {
+func (gce *GCEClient) CreateAPIServer() error {
+	if err := CreateExtApiServerRoleBinding(); err != nil {
+		return err
+	}
+
+	if err := CreateApiServer(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (gce *GCEClient) CreateControllers(cluster *clusterv1.Cluster, initialMachines []*clusterv1.Machine) error {
 	if err := gce.CreateMachineControllerServiceAccount(cluster, initialMachines); err != nil {
 		return err
 	}
@@ -125,16 +137,12 @@ func (gce *GCEClient) CreateMachineController(cluster *clusterv1.Cluster, initia
 	if err := gce.setupSSHAccess(util.GetMaster(initialMachines)); err != nil {
 		return err
 	}
-
-	if err := CreateExtApiServerRoleBinding(); err != nil {
-		return err
-	}
-
-	if err := CreateApiServerAndController(gce.kubeadmToken); err != nil {
+	if err := CreateController(gce.kubeadmToken); err != nil {
 		return err
 	}
 	return nil
 }
+
 
 func (gce *GCEClient) Create(cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
 	config, err := gce.providerconfig(machine.Spec.ProviderConfig)
@@ -428,10 +436,17 @@ func (gce *GCEClient) GetKubeConfig(master *clusterv1.Machine) (string, error) {
 		return "", err
 	}
 
-	command := "echo STARTFILE; sudo cat /etc/kubernetes/admin.conf"
-	result := strings.TrimSpace(util.ExecCommand(
+	 cmd := exec.Command(
 		"gcloud", "compute", "ssh", "--project", config.Project,
-		"--zone", config.Zone, master.ObjectMeta.Name, "--command", command))
+		"--zone", config.Zone, master.ObjectMeta.Name, "--command", "echo STARTFILE; sudo cat /etc/kubernetes/admin.conf")
+
+  out, err := cmd.CombinedOutput()
+
+  if err != nil {
+    return "", fmt.Errorf("%v %v  out:%v err:%v", cmd.Path, cmd.Args, string(out), err)
+  }
+
+	result := strings.TrimSpace(string(out))
 	parts := strings.Split(result, "STARTFILE")
 	if len(parts) != 2 {
 		return "", nil

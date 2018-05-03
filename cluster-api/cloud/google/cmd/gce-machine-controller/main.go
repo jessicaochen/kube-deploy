@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+   "flag"
 	"github.com/golang/glog"
 	"github.com/kubernetes-incubator/apiserver-builder/pkg/controller"
 	"github.com/spf13/pflag"
@@ -39,7 +40,14 @@ func init() {
 }
 
 func main() {
+  // Set glog flags https://stackoverflow.com/questions/34053881/golang-how-can-i-use-pflag-with-other-packages-that-use-flag
+  pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+
 	pflag.Parse()
+
+
+// 	flag.Set("v", "5")
+// 	flag.Parse()
 
 	logs.InitLogs()
 	defer logs.FlushLogs()

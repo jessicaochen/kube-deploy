@@ -68,10 +68,10 @@ func NewDeployer(provider string, configPath string) *deployer {
 func (d *deployer) CreateCluster(c *clusterv1.Cluster, machines []*clusterv1.Machine) error {
 	vmCreated := false
 	if err := d.createCluster(c, machines, &vmCreated); err != nil {
-		if vmCreated {
-			d.deleteMasterVM(machines)
-		}
-		d.machineDeployer.PostDelete(c, machines)
+		//if vmCreated {
+		//	d.deleteMasterVM(machines)
+		//}
+		//d.machineDeployer.PostDelete(c, machines)
 		return err
 	}
 
@@ -107,10 +107,11 @@ func (d *deployer) DeleteCluster() error {
 		return err
 	}
 
+/*
 	if err := d.deleteMasterVM(machines); err != nil {
 		glog.Errorf("Error deleting master vm", err)
 	}
-
+*/
 	glog.Info("Running post delete operations")
 	if err := d.machineDeployer.PostDelete(cluster, machines); err != nil {
 		return err
@@ -119,6 +120,7 @@ func (d *deployer) DeleteCluster() error {
 	return nil
 }
 
+/*
 func (d *deployer) deleteMasterVM(machines []*clusterv1.Machine) error {
 	master := util.GetMaster(machines)
 	if master == nil {
@@ -131,3 +133,4 @@ func (d *deployer) deleteMasterVM(machines []*clusterv1.Machine) error {
 	}
 	return nil
 }
+*/

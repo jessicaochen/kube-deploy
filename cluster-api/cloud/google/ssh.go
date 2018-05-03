@@ -70,7 +70,8 @@ func (gce *GCEClient) setupSSHAccess(m *clusterv1.Machine) error {
 	if err != nil {
 		return err
 	}
-
+	// TODO: add ssh keys at the right time.
+/*
 	config, err := gce.providerconfig(m.Spec.ProviderConfig)
 	if err != nil {
 		return err
@@ -82,6 +83,7 @@ func (gce *GCEClient) setupSSHAccess(m *clusterv1.Machine) error {
 	if err != nil {
 		return err
 	}
+*/
 
 	// Create secrets so that machine controller container can load them.
 	err = run("kubectl", "create", "secret", "generic", MachineControllerSshKeySecret, "--from-file=private="+SshKeyFile, "--from-literal=user="+SshUser)

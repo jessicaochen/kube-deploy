@@ -185,8 +185,9 @@ func Copy(m *clusterv1.Machine) *clusterv1.Machine {
 }
 
 func ExecCommand(name string, args ...string) string {
-	cmdOut, _ := exec.Command(name, args...).Output()
-	return string(cmdOut)
+  cmd := exec.Command(name, args...)
+	cmdOut, err := cmd.Output()
+	return fmt.Sprintf("%v %v  out:%v err:%v", cmd.Path, cmd.Args, string(cmdOut), err)
 }
 
 func Filter(list []string, strToFilter string) (newList []string) {
